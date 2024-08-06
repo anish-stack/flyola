@@ -2,10 +2,10 @@
 const mysql = require('mysql2/promise');
 
 const pool = mysql.createPool({
-    host: 'flyola.in',
-    user: 'u271914483_user',
-    password: '@v36ujQKL1',
-    database: 'u271914483_new_db',
+    host: 'apnipaathshaala.in',
+    user: 'u905431022_user',
+    password: '2S$c~Msw',
+    database: 'u905431022_flyola_test',
     connectionLimit: 10
 });
 
