@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flight Details</title>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+
+        .flight-info,
+        .passenger-form {
+            background-color: #fff;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .flight-info h2,
+        .passenger-form h3 {
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+
+        .passenger-form .passenger-card {
+            background-color: #f1f1f1;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 10px;
+            position: relative;
+        }
+
+        .form-label {
+            font-weight: bold;
+        }
+
+        .btn-custom {
+            background-color: #007bff;
+            color: white;
+        }
+
+        .btn-custom:hover {
+            background-color: #0056b3;
+        }
+
+        .btn-danger {
+            background-color: #dc3545;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background-color: #c82333;
+        }
+
+        .text-right {
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .paxtype-badge {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            background-color: #007bff;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+        }
+    </style>
+    <script>
+        let passengerCount = {
+            Adult: 0,
+            Child: 0,
+            Infant: 0
+        };
+        let maxPassengers = {
+            Adult: 0,
+            Child: 0,
+            Infant: 0
+        };
+
+        const getUrlParams = () => {
+            const params = new URLSearchParams(window.location.search);
+            let flightDetail = params.get('flightDetail');
+            let fares = params.get('fares');
+
+            if (flightDetail) {
+                flightDetail = decodeURIComponent(flightDetail);
+                flightDetail = JSON.parse(flightDetail);
+            }
+
+            if (fares) {
+                fares = decodeURIComponent(fares);
+                fares = JSON.parse(fares);
+            }
+
+            return {
+                departureCity: params.get('departureCity'),
+                arrivalCity: params.get('arrivalCity'),
+                date: params.get('date'),
+                adults: Number(params.get('adults')) || 0,
+                children: Number(params.get('children')) || 0,
+                infants: Number(params.get('infants')) || 0,
+                flightDetail,
+                fares
+            };
+        };
+
+        const displayFlightDetails = () => {
+            const { departureCity, arrivalCity, date, adults, children, infants, flightDetail, fares } = getUrlParams();
+            maxPassengers.Adult = adults;
+            maxPassengers.Child = children;
+            maxPassengers.Infant = infants;
+
+            let fareDetailsHTML = '<h2>Fare Details</h2>';
+            let totalPrice = 0;
+
+            fares.forEach(fare => {
+                fare.FareDescription.forEach(fareDescriptionArray => {
+                    fareDescriptionArray.forEach(fareDescription => {
+                        if (fareDescription.Paxtype === 'ADT' && adults > 0) {
+                            const amount = parseFloat(fareDescription.GrossAmount) * adults;
+                            fareDetailsHTML += `<p><strong>Adult Fare:</strong> Rs ${fareDescription.GrossAmount} x ${adults} = Rs ${amount.toFixed(2)}</p>`;
+                            totalPrice += amount;
+                        } else if (fareDescription.Paxtype === 'CHLD' && children > 0) {
+                            const amount = parseFloat(fareDescription.GrossAmount) * children;
+                            fareDetailsHTML += `<p><strong>Child Fare:</strong> Rs ${fareDescription.GrossAmount} x ${children} = Rs ${amount.toFixed(2)}</p>`;
+                            totalPrice += amount;
+                        } else if (fareDescription.Paxtype === 'INF' && infants > 0) {
+                            const amount = parseFloat(fareDescription.GrossAmount) * infants;
+                            fareDetailsHTML += `<p><strong>Infant Fare:</strong> Rs ${fareDescription.GrossAmount} x ${infants} = Rs ${amount.toFixed(2)}</p>`;
+                            totalPrice += amount;
+                        }
+                    });
+                });
+            });
+
+            fareDetailsHTML += `<p><strong>Total Price:</strong> Rs ${totalPrice.toFixed(2)}</p>`;
+
+            // Display flight and fare details on the page
+            document.getElementById('details').innerHTML = `
+                <div class="flight-info">
+                    <h2>Flight Details</h2>
+                    <p><strong>Departure City:</strong> ${departureCity}</p>
+                    <p><strong>Arrival City:</strong> ${arrivalCity}</p>
+                    <p><strong>Date:</strong> ${date}</p>
+                    <p><strong>Adults:</strong> ${adults}</p>
+                    <p><strong>Children:</strong> ${children}</p>
+                    <p><strong>Infants:</strong> ${infants}</p>
+                    <p><strong>Flight Number:</strong> ${flightDetail?.FlightNumber || 'N/A'}</p>
+                    <p><strong>Departure:</strong> ${flightDetail?.Origin} at ${flightDetail?.DepartureDateTime}</p>
+                    <p><strong>Arrival:</strong> ${flightDetail?.Destination} at ${flightDetail?.ArrivalDateTime}</p>
+                    <p><strong>Stops:</strong> ${flightDetail?.Stops}</p>
+                    <p><strong>Via:</strong> ${flightDetail?.Via}</p>
+                    <p><strong>Flying Time:</strong> ${flightDetail?.FlyingTime} minutes</p>
+                    <p><strong>Available Seats:</strong> ${flightDetail?.AvailSeat[0]?.availableSeats || 'N/A'}</p>
+                    <p><strong>Booking Allowed:</strong> ${flightDetail?.BookingAllowed ? 'Yes' : 'No'}</p>
+                    ${fareDetailsHTML}
+                </div>
+            `;
+        };
+
+        const addPassengerForm = (paxtype) => {
+            if (passengerCount[paxtype] >= maxPassengers[paxtype]) {
+                alert(`You cannot add more ${paxtype.toLowerCase()}s than specified.`);
+                return;
+            }
+
+            const passengerSection = document.getElementById('passenger-section');
+            const passengerCard = document.createElement('div');
+            passengerCard.className = 'passenger-card';
+            passengerCard.innerHTML = `
+                <h3>Passenger ${passengerCount[paxtype] + 1}</h3>
+                <span class="paxtype-badge">${paxtype}</span>
+                <div class="form-row">
+                    <div class="form-group col-md-2">
+                        <label for="title-${paxtype}-${passengerCount[paxtype]}" class="form-label">Title</label>
+                        <select id="title-${paxtype}-${passengerCount[paxtype]}" class="form-control">
+                            <option>MR</option>
+                            <option>MS</option>
+                            <option>MRS</option>
+                        </select>
+                    </div>
+                    <div class="form-group col-md-10">
+                        <label for="fullname-${paxtype}-${passengerCount[paxtype]}" class="form-label">Full Name</label>
+                        <input type="text" class="form-control" id="fullname-${paxtype}-${passengerCount[paxtype]}" placeholder="Full Name">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group col-md-6">
+                        <label for="dob-${paxtype}-${passengerCount[paxtype]}" class="form-label">Date of Birth</label>
+                        <input type="date" class="form-control" id="dob-${paxtype}-${passengerCount[paxtype]}">
+                    </div>
+                </div>
+            `;
+
+            passengerSection.appendChild(passengerCard);
+            passengerCount[paxtype]++;
+        };
+
+        const sendData = async (bookingData) => {
+            console.log(bookingData)
+            try {
+                const response = await axios.post('http://localhost:7000/api/v1/details/Flights-Booking', bookingData);
+                console.log('Data sent successfully:', response.data);
+            } catch (error) {
+                console.error('Error sending data:', error);
+            }
+        };
+
+        const submitForm = () => {
+            const { departureCity, arrivalCity, date, flightDetail, fares } = getUrlParams();
+            const passengers = [];
+
+            Object.keys(passengerCount).forEach(paxtype => {
+                for (let i = 0; i < passengerCount[paxtype]; i++) {
+                    const title = document.getElementById(`title-${paxtype}-${i}`).value;
+                    const fullName = document.getElementById(`fullname-${paxtype}-${i}`).value;
+                    const dob = document.getElementById(`dob-${paxtype}-${i}`).value;
+
+                    passengers.push({
+                        Title: title,
+                        FullName: fullName,
+                        DOB: dob,
+                        PaxRefNumber: i + 1,
+                        Paxtype: paxtype
+                    });
+                }
+            });
+
+            const contactNumber = document.getElementById('contact-number').value;
+            const email = document.getElementById('email').value;
+
+            let totalPrice = 0;
+            fares.forEach(fare => {
+                fare.FareDescription.forEach(fareDescriptionArray => {
+                    fareDescriptionArray.forEach(fareDescription => {
+                        if (fareDescription.Paxtype === 'ADT') {
+                            totalPrice += parseFloat(fareDescription.GrossAmount) * maxPassengers.Adult;
+                        } else if (fareDescription.Paxtype === 'CHLD') {
+                            totalPrice += parseFloat(fareDescription.GrossAmount) * maxPassengers.Child;
+                        } else if (fareDescription.Paxtype === 'INF') {
+                            totalPrice += parseFloat(fareDescription.GrossAmount) * maxPassengers.Infant;
+                        }
+                    });
+                });
+            });
+
+            const bookingData = {
+                flightDetail,
+                passengers,
+                contactNumber,
+                email,
+                totalPrice
+            };
+
+            sendData(bookingData);
+
+            alert(`Flight booked successfully!\nTotal Price: Rs ${totalPrice.toFixed(2)}`);
+        };
+
+        window.onload = displayFlightDetails;
+    </script>
+</head>
+
+<body>
+    <div class="container">
+        <div id="details"></div>
+
+        <div class="flight-info">
+            <h2>Passenger Details</h2>
+            <div id="passenger-section">
+                <!-- Passenger forms will be appended here -->
+            </div>
+            <div class="text-right">
+                <button class="btn btn-custom" onclick="addPassengerForm('Adult')">Add Adult</button>
+                <button class="btn btn-custom" onclick="addPassengerForm('Child')">Add Child</button>
+                <button class="btn btn-custom" onclick="addPassengerForm('Infant')">Add Infant</button>
+            </div>
+        </div>
+
+        <div class="contact-info flight-info">
+            <h3>Contact Information</h3>
+            <form>
+                <div class="form-row">
+                    <div class="form-group col-md-6">
+                        <label for="contact-number" class="form-label">Contact Number</label>
+                        <input type="text" class="form-control" id="contact-number" placeholder="Contact Number">
+                    </div>
+                    <div class="form-group col-md-6">
+                        <label for="email" class="form-label">Email</label>
+                        <input type="email" class="form-control" id="email" placeholder="Email">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <button type="button" class="btn btn-custom" onclick="submitForm()">Submit</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.7.3/axios.min.js"
+        integrity="sha512-zJXKBryKlsiDaWcWQ9fuvy50SG03/Qc5SqfLXxHmk9XiUUbcD9lXYjHDBxLFOuZSU6ULXaJ69bd7blSMEgxXNQ=="
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.3/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+</body>
+
+</html>
