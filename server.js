@@ -5,12 +5,14 @@ dotenv.config();
 const cookiesParser = require('cookie-parser');
 const cors = require('cors');
 const { rateLimit } = require('express-rate-limit');
+const cluster = require('cluster');
+const os = require('os');
 
 // Initialize app and configure port
 const PORT = process.env.PORT || 3000;
 const app = express();
-const authRoutes = require('./routes/Auth.routes')
-const FlightsRoutes = require('./routes/flights.routes')
+const authRoutes = require('./routes/Auth.routes');
+const FlightsRoutes = require('./routes/flights.routes');
 
 // Rate limiter configuration
 const limiter = rateLimit({
@@ -32,8 +34,6 @@ app.use(limiter);
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/details', FlightsRoutes);
 
-
-
 // Error handling middleware
 app.use((err, req, res, next) => {
     console.error(err.stack);
@@ -44,7 +44,36 @@ app.use((err, req, res, next) => {
     });
 });
 
-// Start the server
-app.listen(PORT, () => {
-    console.log(`Server is running on Port Number ${PORT}`);
+// Handle unhandled promise rejections
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+    // Exit the process with failure code
+    process.exit(1);
 });
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (err) => {
+    console.error('Uncaught Exception thrown:', err);
+    // Exit the process with failure code
+    process.exit(1);
+});
+
+// Cluster setup
+if (cluster.isMaster) {
+    const numCPUs = os.cpus().length;
+    console.log(`Master ${process.pid} is running`);
+
+    // Fork workers
+    for (let i = 0; i < numCPUs; i++) {
+        cluster.fork();
+    }
+
+    cluster.on('exit', (worker, code, signal) => {
+        console.log(`Worker ${worker.process.pid} died`);
+    });
+} else {
+    // Start the server in worker processes
+    app.listen(PORT, () => {
+        console.log(`Worker ${process.pid} started on Port Number ${PORT}`);
+    });
+}
