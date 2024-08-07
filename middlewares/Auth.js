@@ -8,10 +8,10 @@ const Protect = async (req, res, next) => {
         if (!token) {
             return res.status(401).json({ message: 'No token provided' });
         }
-        
+
         // Verify the token
         const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
-        console.log("decoded",decoded)
+        // console.log("decoded",decoded)
         // Attach the decoded token payload to the request object
         req.user = decoded;
 

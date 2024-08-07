@@ -60,7 +60,7 @@ exports.CreateAgent = async (req, res) => {
 exports.LoginAgent = async (req, res) => {
     try {
         const { agentId, username, password } = req.body;
-        console.log(req.body)
+        // console.log(req.body)
         if (!username || !password || !agentId) {
             return res.status(403).json({
                 success: false,
