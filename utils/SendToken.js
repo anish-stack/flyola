@@ -3,7 +3,7 @@ const jwt = require('jsonwebtoken');
 const SendToken = async (res, user, status) => {
     try {
         // Create JWT token with user id and secret key
-        const token = jwt.sign({ id: user.agentId }, process.env.JWT_SECRET_KEY, {
+        const token = jwt.sign({ id: user.agentId,userName:user.username }, process.env.JWT_SECRET_KEY, {
             expiresIn: '6h'
         });
 

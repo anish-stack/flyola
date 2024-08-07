@@ -520,33 +520,22 @@ exports.BookTicket = async (req, res) => {
         // Check if enough seats are available
         if (totalAvailableSeats >= totalPassengers) {
             const userId = req.user.id;
-            const generateBookingNumber = () => {
-                // Get the current timestamp in milliseconds
-                const timestamp = Date.now(); // e.g., 1691582210234
+            const userName = req.user.userName;
 
-                // Convert the timestamp to a string and take the last 10 digits
-                const timestampString = timestamp.toString().slice(-10);
-
-                // Generate a random 3-digit number
-                const randomNumber = Math.floor(Math.random() * 1000); // e.g., 123
-
-                // Format the random number to 3 digits
-                const randomNumberString = randomNumber.toString().padStart(3, '0');
-
-                // Combine the last 7 digits of the timestamp with the random number
-                const bookingNumber = timestampString.slice(-7) + randomNumberString;
-
-                return bookingNumber;
-            };
 
             // Generate booking references
+            const generateBookingNumber = () => {
+                const timestamp = Date.now().toString().slice(-10);
+                const randomNumberString = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+                return timestamp.slice(-7) + randomNumberString;
+            };
+
             const generatePnrNumber = () => Array.from({ length: 6 }, () => 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'.charAt(Math.floor(Math.random() * 36))).join('');
+
             const BookingNumber = generateBookingNumber();
-            const generateTransactionId = req.user.id; // Use user ID for transaction ID
+            const pnr = generatePnrNumber();
             const paymentStatus = status || 'Pending';
             const bookingStatus = paymentStatus === 'Success' ? 'Confirmed' : 'Pending';
-            const pnr = generatePnrNumber();
-            const bookingNumber = BookingNumber;
             const bookDate = flightDetail.FlightDepartureDate;
 
             // Get discount value from business settings
@@ -557,7 +546,7 @@ exports.BookTicket = async (req, res) => {
 
             // Check agent wallet amount
             const agentQuery = 'SELECT wallet_amount FROM agents WHERE agentId = ?';
-            const [agentResult] = await db.execute(agentQuery, [req.user.id]);
+            const [agentResult] = await db.execute(agentQuery, [userId]);
 
             if (agentResult.length === 0) {
                 return res.status(401).json({
@@ -578,17 +567,16 @@ exports.BookTicket = async (req, res) => {
 
             // Deduct amount from agent wallet
             const updateWalletQuery = 'UPDATE agents SET wallet_amount = wallet_amount - ? WHERE agentId = ?';
-            await db.execute(updateWalletQuery, [totalPrice, req.user.id]);
+            await db.execute(updateWalletQuery, [totalPrice, userId]);
 
             // Insert booking record
             const bookingQuery = `
-                INSERT INTO bookings (pnr, bookingNo, contact_no, email_id, noOfPassengers, bookDate, schedule_id, totalFare, paymentStatus, bookingStatus, bookedUserId,agent_type, discount)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?)
+                INSERT INTO bookings (pnr, bookingNo, contact_no, email_id, noOfPassengers, bookDate, schedule_id, totalFare, paymentStatus, bookingStatus, bookedUserId, agent_type, discount)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             `;
 
-            // Execute the booking query
-            const [result] = await db.query(bookingQuery, [pnr, bookingNumber, contactNumber, email, totalPassengers, bookDate, flightDetail.ScheduleID, totalPrice, paymentStatus, bookingStatus, 1,req.user.id, discountValue]);
-            const bookingId = result.insertId; // Get the ID of the inserted booking
+            const [result] = await db.query(bookingQuery, [pnr, BookingNumber, contactNumber, email, totalPassengers, bookDate, flightDetail.ScheduleID, totalPrice, paymentStatus, bookingStatus, 1, userId, discountValue]);
+            const bookingId = result.insertId;
 
             // Insert passenger records
             const passengerQuery = `
@@ -602,16 +590,65 @@ exports.BookTicket = async (req, res) => {
             }
 
             // Update number of tickets booked by agent
-            const updateAgentTicketsQuery = 'UPDATE agents SET no_of_ticket_booked =  + ? WHERE agentId = ?';
-            await db.execute(updateAgentTicketsQuery, [totalPassengers, req.user.id]);
+            const updateAgentTicketsQuery = 'UPDATE agents SET no_of_ticket_booked = no_of_ticket_booked + ? WHERE agentId = ?';
+            await db.execute(updateAgentTicketsQuery, [totalPassengers, userId]);
+
+          
+            const FlightBookedInfo = {
+                BookingResponse: {
+                    AgentInfo: {
+                        AgentId: userId,
+                        UserName: userName,
+                        AppType: "API",
+                    },
+                    AdultCount: relevantPassengers.filter(p => p.Paxtype === 'Adult').length,
+                    ChildCount: relevantPassengers.filter(p => p.Paxtype === 'Child').length,
+                    InfantCount: relevantPassengers.filter(p => p.Paxtype === 'Infant').length,
+                    IssuedDate: new Date().toISOString(),
+                    Item: [
+                        {
+                            FlightID: flightDetail.FlightID,
+                            ScheduleID: flightDetail.ScheduleID,
+                            Resultcode: 1,
+                            PNR: pnr,
+                            BookingId: bookingId,
+                            BaseOrigin: flightDetail.Origin,
+                            BaseDestination: flightDetail.Destination,
+                            DepartureDateTime: flightDetail.DepartureDateTime,
+                            ArrivalDateTime: flightDetail.ArrivalDateTime,
+                            PromoCode: flightDetail.PromoCode || null,
+                            Special: 'N',
+                            TripType: flightDetail.TripType || 'O',
+                            BookingStatus: bookingStatus,
+                        }
+                    ],
+                    PaymentDetails: {
+                        Item: [
+                            {
+                                Amount: totalPrice,
+                                CurrencyCode: "INR"
+                            }
+                        ]
+                    },
+                    TravellerInfo: relevantPassengers.map((passenger, index) => ({
+                        PaxId: index + 1,
+                        Title: passenger.Title,
+                        FirstName: passenger.FirstName,
+                        LastName: passenger.LastName,
+                        DOB: passenger.DOB,
+                        PaxType: passenger.Paxtype,
+                        TicketNo: `${pnr}-${index + 1}`,
+                    }))
+                }
+            };
 
             res.status(201).json({
                 success: true,
                 message: 'Booking successful',
+                data: FlightBookedInfo,
                 availableSeats: totalAvailableSeats
             });
         } else {
-            // Not enough seats available
             res.status(400).json({
                 success: false,
                 message: `Only ${totalAvailableSeats} seats are available, but ${totalPassengers} are requested.`
