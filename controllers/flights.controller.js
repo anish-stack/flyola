@@ -25,15 +25,15 @@ function checkBookTime(sector, departure_time, date) {
 
         // Check if the time difference is less than the allowed minimum
         if (timeDifference < minHoursDifference) {
-            console.log('Bookings are stopped for this time.');
+            // console.log('Bookings are stopped for this time.');
             return false;
         } else {
-            console.log('Bookings are allowed.');
+            // console.log('Bookings are allowed.');
             return true;
         }
     } else {
         // Allow bookings for dates other than today
-        console.log('Bookings are allowed for dates other than today.');
+        // console.log('Bookings are allowed for dates other than today.');
         return true;
     }
 }
@@ -69,17 +69,17 @@ async function checkSeatAvailability(schedule_ids, date, totalNumberOfPassengers
                 WHERE schedule_id = ? AND bookDate = ? AND bookingStatus = 'Confirmed'
             `;
             const [allBookingsResults] = await db.query(allBookingsQuery, [schedule_id, formattedDate]);
-            console.log("Confirm", schedule_id);
-            console.log("Confirm", formattedDate);
+            // console.log("Confirm", schedule_id);
+            // console.log("Confirm", formattedDate);
 
 
             // Calculate total confirmed seats
             const totalConfirmedSeats = allBookingsResults.reduce((acc, booking) => acc + (booking.noOfPassengers || 0), 0);
-            console.log("Confirm", totalConfirmedSeats);
+            // console.log("Confirm", totalConfirmedSeats);
 
             // Calculate available seats
             const availableSeats = seatLimit - totalConfirmedSeats;
-            console.log("Available Seats:", availableSeats);
+            // console.log("Available Seats:", availableSeats);
 
             // Ensure non-negative available seats
             const nonNegativeAvailableSeats = availableSeats >= 0 ? availableSeats : 0;
@@ -104,7 +104,7 @@ async function checkSeatAvailability(schedule_ids, date, totalNumberOfPassengers
         return seatAvailabilityResults;
 
     } catch (error) {
-        console.error("An error occurred while checking seat availability:", error);
+        // console.error("An error occurred while checking seat availability:", error);
         return null;
     }
 }
@@ -245,7 +245,7 @@ exports.GetFlights = async (req, res) => {
                 const availableSeats = await checkSeatAvailability(schedule.id, date, totalPassengers);
                 return { scheduleId: schedule.id, availableSeats };
             } catch (error) {
-                console.error('Error checking seat availability:', error);
+                // console.error('Error checking seat availability:', error);
                 return { scheduleId: null, availableSeats: null };
             }
         });
@@ -304,7 +304,7 @@ exports.GetFlights = async (req, res) => {
             ) : [[], []];
             // console.log(viaAirportCodes)
             const airportCodesMapVia = viaAirportCodes.reduce((map, airport) => {
-                console.log(airport)
+                // console.log(airport)
                 map[airport.id] = airport.airport_code;
                 return map;
             }, {});
@@ -468,7 +468,7 @@ function getCurrentDateInIST() {
 }
 
 // Example usage
-console.log(getCurrentDateInIST()); // Output will be in the format YYYY-MM-DD
+// console.log(getCurrentDateInIST()); // Output will be in the format YYYY-MM-DD
 
 
 // Generate random alphanumeric string

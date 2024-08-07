@@ -14,6 +14,9 @@ const app = express();
 const authRoutes = require('./routes/Auth.routes');
 const FlightsRoutes = require('./routes/flights.routes');
 
+// Trust the first proxy (typically used when behind a reverse proxy)
+app.set('trust proxy', 1);
+
 // Rate limiter configuration
 const limiter = rateLimit({
     windowMs: 60 * 1000, // 1 minute
